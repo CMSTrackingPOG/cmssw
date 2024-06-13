@@ -22,50 +22,13 @@
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 // DQM Histograming
+#include "DQM/SiPixelHeterogeneous/interface/SiPixelHeterogeneousDQMUtil.h"
 #include "DQMServices/Core/interface/MonitorElement.h"
 #include "DQMServices/Core/interface/DQMEDAnalyzer.h"
 #include "DQMServices/Core/interface/DQMStore.h"
 // DataFormats
 #include "DataFormats/TrackSoA/interface/TracksHost.h"
 #include "DataFormats/TrackSoA/interface/alpaka/TrackUtilities.h"
-
-namespace {
-  // same logic used for the MTV:
-  // cf https://github.com/cms-sw/cmssw/blob/master/Validation/RecoTrack/src/MTVHistoProducerAlgoForTracker.cc
-  typedef dqm::reco::DQMStore DQMStore;
-
-  void setBinLog(TAxis* axis) {
-    int bins = axis->GetNbins();
-    float from = axis->GetXmin();
-    float to = axis->GetXmax();
-    float width = (to - from) / bins;
-    std::vector<float> new_bins(bins + 1, 0);
-    for (int i = 0; i <= bins; i++) {
-      new_bins[i] = TMath::Power(10, from + i * width);
-    }
-    axis->Set(bins, new_bins.data());
-  }
-
-  void setBinLogX(TH1* h) {
-    TAxis* axis = h->GetXaxis();
-    setBinLog(axis);
-  }
-  void setBinLogY(TH1* h) {
-    TAxis* axis = h->GetYaxis();
-    setBinLog(axis);
-  }
-
-  template <typename... Args>
-  dqm::reco::MonitorElement* make2DIfLog(DQMStore::IBooker& ibook, bool logx, bool logy, Args&&... args) {
-    auto h = std::make_unique<TH2I>(std::forward<Args>(args)...);
-    if (logx)
-      setBinLogX(h.get());
-    if (logy)
-      setBinLogY(h.get());
-    const auto& name = h->GetName();
-    return ibook.book2I(name, h.release());
-  }
-}  // namespace
 
 // TODO: change class name to SiPixelCompareTracksSoA when CUDA code is removed
 template <typename T>
@@ -296,7 +259,7 @@ void SiPixelCompareTracks<T>::bookHistograms(DQMStore::IBooker& iBook,
   hCharge_ = iBook.book2I("charge",fmt::sprintf("%s;Reference;Target",toRep),3, -1.5, 1.5, 3, -1.5, 1.5);
 
   hpt_ = iBook.book2I("pt", "Track (quality #geq loose) p_{T} [GeV];Reference;Target", 200, 0., 200., 200, 0., 200.);
-  hptLogLog_ = make2DIfLog(iBook, true, true, "ptLogLog", "Track (quality #geq loose) p_{T} [GeV];Reference;Target", 200, log10(0.5), log10(200.), 200, log10(0.5), log10(200.));
+  hptLogLog_ = siPixelHeteroDQMUtil::make2DIfLog(iBook, true, true, "ptLogLog", "Track (quality #geq loose) p_{T} [GeV];Reference;Target", 200, log10(0.5), log10(200.), 200, log10(0.5), log10(200.));
   heta_ = iBook.book2I("eta", "Track (quality #geq loose) #eta;Reference;Target", 30, -3., 3., 30, -3., 3.);
   hphi_ = iBook.book2I("phi", "Track (quality #geq loose) #phi;Reference;Target", 30, -M_PI, M_PI, 30, -M_PI, M_PI);
   hz_ = iBook.book2I("z", "Track (quality #geq loose) z [cm];Reference;Target", 30, -30., 30., 30, -30., 30.);
